@@ -1,0 +1,236 @@
+import React, { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { base44 } from "@/api/base44Client";
+import { Search, Trash2, Edit, UserPlus, Shield } from 'lucide-react';
+
+export default function Team() {
+  const queryClient = useQueryClient();
+  const [showModal, setShowModal] = useState(false);
+  const [isEditing, setIsEditing] = useState(null);
+  const [formData, setFormData] = useState({
+    email: '',
+    display_name: '',
+    role: 'team_member',
+    avatar_url: ''
+  });
+  const [searchTerm, setSearchTerm] = useState('');
+
+  const { data: users, isLoading } = useQuery({
+    queryKey: ['user_profiles'],
+    queryFn: () => base44.entities.UserProfile.list(),
+    initialData: []
+  });
+
+  // Since we can't create real users via API, we use UserProfile to mock the team management aspect
+  const createUser = useMutation({
+    mutationFn: (data) => base44.entities.UserProfile.create(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['user_profiles']);
+      setShowModal(false);
+      resetForm();
+    }
+  });
+
+  const updateUser = useMutation({
+    mutationFn: ({ id, data }) => base44.entities.UserProfile.update(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['user_profiles']);
+      setShowModal(false);
+      resetForm();
+    }
+  });
+
+  const deleteUser = useMutation({
+    mutationFn: (id) => base44.entities.UserProfile.delete(id),
+    onSuccess: () => queryClient.invalidateQueries(['user_profiles'])
+  });
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (isEditing) {
+      updateUser.mutate({ id: isEditing.id, data: formData });
+    } else {
+      createUser.mutate(formData);
+    }
+  };
+
+  const handleEdit = (user) => {
+    setIsEditing(user);
+    setFormData({
+      email: user.email,
+      display_name: user.display_name || '',
+      role: user.role,
+      avatar_url: user.avatar_url || ''
+    });
+    setShowModal(true);
+  };
+
+  const handleDelete = (id) => {
+    if(window.confirm("Are you sure? This will remove the user from the team list.")) {
+        deleteUser.mutate(id);
+    }
+  };
+
+  const resetForm = () => {
+    setIsEditing(null);
+    setFormData({
+      email: '',
+      display_name: '',
+      role: 'team_member',
+      avatar_url: ''
+    });
+  };
+
+  const filteredUsers = users.filter(u => 
+      (u.display_name && u.display_name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (u.email && u.email.toLowerCase().includes(searchTerm.toLowerCase()))
+  );
+
+  return (
+    <div>
+       <div className="flex justify-between items-center mb-5">
+        <h1 className="wp-heading inline-block mr-4 mb-0">Team Members</h1>
+        <button 
+          onClick={() => { resetForm(); setShowModal(true); }}
+          className="px-3 py-1 text-xs font-medium text-[#2271b1] border border-[#2271b1] rounded bg-[#f6f7f7] hover:bg-[#f0f0f1] hover:border-[#0a4b78] hover:text-[#0a4b78] transition-colors"
+        >
+          Add New Member
+        </button>
+      </div>
+
+      <div className="flex justify-between items-center mb-3 text-sm text-[#646970]">
+        <div className="flex gap-1">
+          <button className="text-[#1d2327] font-bold">All <span className="text-[#646970] font-normal">({users.length})</span></button>
+          <span className="text-[#c3c4c7]">|</span>
+          <button className="text-[#2271b1] hover:text-[#135e96]">Administrators <span className="text-[#646970] font-normal">({users.filter(u => u.role === 'admin').length})</span></button>
+        </div>
+        <div className="relative">
+           <input 
+                type="text" 
+                className="wp-input !h-8 !w-48" 
+                placeholder="Search users..." 
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+            />
+           <button className="wp-btn-secondary !h-8 ml-1">Search Users</button>
+        </div>
+      </div>
+
+      <div className="bg-white border border-[#c3c4c7] shadow-[0_1px_1px_rgba(0,0,0,0.04)]">
+        <table className="w-full text-left border-collapse">
+          <thead className="bg-white border-b border-[#c3c4c7]">
+            <tr>
+              <th className="w-8 p-2 text-center"><input type="checkbox" /></th>
+              <th className="p-2 text-sm font-medium text-[#1d2327]">Avatar</th>
+              <th className="p-2 text-sm font-medium text-[#1d2327]">Name</th>
+              <th className="p-2 text-sm font-medium text-[#1d2327]">Email</th>
+              <th className="p-2 text-sm font-medium text-[#1d2327]">Role</th>
+              <th className="p-2 text-sm font-medium text-[#1d2327]">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-[#f0f0f1]">
+            {isLoading ? (
+                <tr><td colSpan={6} className="p-4 text-center">Loading users...</td></tr>
+            ) : filteredUsers.length === 0 ? (
+                <tr><td colSpan={6} className="p-4 text-center">No users found.</td></tr>
+            ) : (
+                filteredUsers.map(user => (
+                    <tr key={user.id} className="group hover:bg-[#f9f9f9]">
+                        <td className="p-2 text-center"><input type="checkbox" /></td>
+                        <td className="p-2">
+                            <div className="w-8 h-8 bg-gray-200 rounded-sm overflow-hidden">
+                                {user.avatar_url ? (
+                                    <img src={user.avatar_url} alt={user.display_name} className="w-full h-full object-cover" />
+                                ) : (
+                                    <div className="w-full h-full flex items-center justify-center text-xs font-bold text-gray-500">
+                                        {user.display_name ? user.display_name[0].toUpperCase() : 'U'}
+                                    </div>
+                                )}
+                            </div>
+                        </td>
+                        <td className="p-2 text-[#2271b1] font-semibold text-sm">
+                            {user.display_name || '—'}
+                        </td>
+                        <td className="p-2 text-sm text-[#646970]">
+                            <a href={`mailto:${user.email}`} className="hover:underline">{user.email}</a>
+                        </td>
+                        <td className="p-2 text-sm">
+                            <span className="capitalize bg-gray-100 px-2 py-0.5 rounded text-xs border border-gray-200">
+                                {user.role?.replace('_', ' ')}
+                            </span>
+                        </td>
+                        <td className="p-2 text-sm">
+                            <div className="flex items-center gap-3">
+                                <button onClick={() => handleEdit(user)} className="text-[#2271b1] hover:underline text-xs">Edit</button>
+                                <button onClick={() => handleDelete(user.id)} className="text-[#b32d2e] hover:underline text-xs">Remove</button>
+                            </div>
+                        </td>
+                    </tr>
+                ))
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Modal */}
+      {showModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+           <div className="bg-white w-full max-w-md shadow-2xl rounded-sm overflow-hidden">
+              <div className="bg-[#f0f0f1] px-4 py-3 border-b border-[#c3c4c7] flex justify-between items-center">
+                 <h2 className="text-lg font-semibold text-[#1d2327]">{isEditing ? 'Edit User' : 'Add New User'}</h2>
+                 <button onClick={() => setShowModal(false)} className="text-[#646970] hover:text-[#b32d2e]">✕</button>
+              </div>
+              <form onSubmit={handleSubmit} className="p-5 space-y-4">
+                 <div>
+                    <label className="block text-sm font-semibold text-[#1d2327] mb-1">Display Name</label>
+                    <input 
+                      type="text" 
+                      className="wp-input w-full"
+                      value={formData.display_name}
+                      onChange={(e) => setFormData({...formData, display_name: e.target.value})}
+                    />
+                 </div>
+                 <div>
+                    <label className="block text-sm font-semibold text-[#1d2327] mb-1">Email (Username)</label>
+                    <input 
+                      type="email" 
+                      required
+                      className="wp-input w-full"
+                      value={formData.email}
+                      onChange={(e) => setFormData({...formData, email: e.target.value})}
+                    />
+                 </div>
+                 <div>
+                    <label className="block text-sm font-semibold text-[#1d2327] mb-1">Role</label>
+                    <select 
+                      className="wp-input w-full"
+                      value={formData.role}
+                      onChange={(e) => setFormData({...formData, role: e.target.value})}
+                    >
+                      <option value="team_member">Team Member</option>
+                      <option value="manager">Manager</option>
+                      <option value="admin">Administrator</option>
+                      <option value="client">Client</option>
+                    </select>
+                 </div>
+                 <div>
+                    <label className="block text-sm font-semibold text-[#1d2327] mb-1">Avatar URL</label>
+                    <input 
+                      type="text" 
+                      className="wp-input w-full"
+                      value={formData.avatar_url}
+                      onChange={(e) => setFormData({...formData, avatar_url: e.target.value})}
+                      placeholder="https://..."
+                    />
+                 </div>
+                 <div className="pt-4 flex justify-end gap-2">
+                    <button type="button" onClick={() => setShowModal(false)} className="text-[#2271b1] text-sm hover:underline px-3 py-1">Cancel</button>
+                    <button type="submit" className="wp-btn">{isEditing ? 'Update User' : 'Add User'}</button>
+                 </div>
+              </form>
+           </div>
+        </div>
+      )}
+    </div>
+  );
+}

@@ -1,0 +1,52 @@
+{
+  "name": "Project",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "description": "Project name"
+    },
+    "description": {
+      "type": "string",
+      "description": "Project details"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "on_hold",
+        "completed",
+        "archived"
+      ],
+      "default": "active"
+    },
+    "priority": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high"
+      ],
+      "default": "medium"
+    },
+    "start_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "end_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "client_email": {
+      "type": "string",
+      "description": "Email of the client associated with this project"
+    },
+    "completion_percentage": {
+      "type": "number",
+      "default": 0
+    }
+  },
+  "required": [
+    "title"
+  ]
+}

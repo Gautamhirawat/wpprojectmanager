@@ -1,0 +1,22 @@
+{
+  "name": "Comment",
+  "type": "object",
+  "properties": {
+    "task_id": {
+      "type": "string"
+    },
+    "user_email": {
+      "type": "string"
+    },
+    "content": {
+      "type": "string"
+    },
+    "file_url": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "task_id",
+    "content"
+  ]
+}

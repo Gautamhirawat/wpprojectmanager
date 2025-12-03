@@ -1,0 +1,30 @@
+{
+  "name": "TimeLog",
+  "type": "object",
+  "properties": {
+    "task_id": {
+      "type": "string"
+    },
+    "project_id": {
+      "type": "string"
+    },
+    "user_email": {
+      "type": "string"
+    },
+    "hours": {
+      "type": "number"
+    },
+    "date": {
+      "type": "string",
+      "format": "date"
+    },
+    "description": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "task_id",
+    "hours",
+    "date"
+  ]
+}

@@ -1,0 +1,123 @@
+import React, { useState, useEffect } from 'react';
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { base44 } from "@/api/base44Client";
+
+export default function Settings() {
+  const queryClient = useQueryClient();
+  const [settings, setSettings] = useState({
+    site_title: 'WP Project Manager',
+    admin_email: '',
+    date_format: 'F j, Y'
+  });
+
+  const { data: globalSettings } = useQuery({
+    queryKey: ['global_settings'],
+    queryFn: () => base44.entities.GlobalSettings.list(),
+  });
+
+  useEffect(() => {
+    if (globalSettings && globalSettings.length > 0) {
+      const current = globalSettings[0];
+      setSettings({
+        site_title: current.site_title,
+        admin_email: current.admin_email || '',
+        date_format: current.date_format
+      });
+    }
+  }, [globalSettings]);
+
+  const saveSettings = useMutation({
+    mutationFn: async (data) => {
+        const existing = await base44.entities.GlobalSettings.list();
+        if (existing.length > 0) {
+            return base44.entities.GlobalSettings.update(existing[0].id, data);
+        } else {
+            return base44.entities.GlobalSettings.create(data);
+        }
+    },
+    onSuccess: () => {
+        queryClient.invalidateQueries(['global_settings']);
+        alert('Settings saved.');
+    }
+  });
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    saveSettings.mutate(settings);
+  };
+
+  return (
+    <div>
+       <h1 className="wp-heading">Settings</h1>
+       
+       <form onSubmit={handleSubmit} className="bg-white border border-[#c3c4c7] shadow-[0_1px_1px_rgba(0,0,0,0.04)] p-6 max-w-3xl">
+          <h2 className="text-lg font-medium text-[#1d2327] mb-4 border-b pb-2">General Settings</h2>
+          
+          <div className="space-y-6">
+             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
+                <label className="text-[#1d2327] font-medium">Site Title</label>
+                <div className="col-span-2">
+                   <input 
+                     type="text" 
+                     className="wp-input w-full" 
+                     value={settings.site_title}
+                     onChange={(e) => setSettings({...settings, site_title: e.target.value})}
+                   />
+                   <p className="text-xs text-[#646970] mt-1">The title of your project manager instance.</p>
+                </div>
+             </div>
+             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
+                <label className="text-[#1d2327] font-medium">Admin Email</label>
+                <div className="col-span-2">
+                   <input 
+                     type="email" 
+                     className="wp-input w-full" 
+                     value={settings.admin_email}
+                     onChange={(e) => setSettings({...settings, admin_email: e.target.value})}
+                   />
+                   <p className="text-xs text-[#646970] mt-1">This address is used for admin purposes.</p>
+                </div>
+             </div>
+             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
+                <label className="text-[#1d2327] font-medium pt-1">Date Format</label>
+                <div className="col-span-2">
+                   <div className="space-y-2">
+                      <label className="flex items-center gap-2">
+                         <input 
+                            type="radio" 
+                            name="date_format" 
+                            checked={settings.date_format === 'F j, Y'}
+                            onChange={() => setSettings({...settings, date_format: 'F j, Y'})}
+                         /> 
+                         <span>F j, Y</span> <span className="text-[#646970] text-xs">January 21, 2025</span>
+                      </label>
+                      <label className="flex items-center gap-2">
+                         <input 
+                            type="radio" 
+                            name="date_format" 
+                            checked={settings.date_format === 'Y-m-d'}
+                            onChange={() => setSettings({...settings, date_format: 'Y-m-d'})}
+                         /> 
+                         <span>Y-m-d</span> <span className="text-[#646970] text-xs">2025-01-21</span>
+                      </label>
+                      <label className="flex items-center gap-2">
+                         <input 
+                            type="radio" 
+                            name="date_format" 
+                            checked={settings.date_format === 'm/d/Y'}
+                            onChange={() => setSettings({...settings, date_format: 'm/d/Y'})}
+                         /> 
+                         <span>m/d/Y</span> <span className="text-[#646970] text-xs">01/21/2025</span>
+                      </label>
+                   </div>
+                </div>
+             </div>
+             
+             <div className="pt-4 border-t border-[#f0f0f1]">
+                <button type="submit" className="wp-btn">Save Changes</button>
+             </div>
+          </div>
+       </form>
+    </div>
+  );
+}

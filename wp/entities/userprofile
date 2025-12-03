@@ -1,0 +1,28 @@
+{
+  "name": "UserProfile",
+  "type": "object",
+  "properties": {
+    "email": {
+      "type": "string"
+    },
+    "role": {
+      "type": "string",
+      "enum": [
+        "admin",
+        "manager",
+        "team_member",
+        "client"
+      ],
+      "default": "team_member"
+    },
+    "avatar_url": {
+      "type": "string"
+    },
+    "display_name": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "email"
+  ]
+}

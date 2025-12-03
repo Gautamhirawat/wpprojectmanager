@@ -1,0 +1,305 @@
+import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
+import { createPageUrl } from '@/utils';
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { base44 } from "@/api/base44Client";
+import { Search, Trash2, Edit, MoreHorizontal, Calendar } from 'lucide-react';
+import { format } from 'date-fns';
+
+export default function Projects() {
+  const queryClient = useQueryClient();
+  const [showModal, setShowModal] = useState(false);
+  const [isEditing, setIsEditing] = useState(null);
+  const [formData, setFormData] = useState({
+    title: '',
+    description: '',
+    status: 'active',
+    priority: 'medium',
+    start_date: '',
+    end_date: '',
+    client_email: ''
+  });
+
+    const [searchTerm, setSearchTerm] = useState('');
+  
+  // Fetch Projects
+  const { data: projects, isLoading } = useQuery({
+    queryKey: ['projects'],
+    queryFn: () => base44.entities.Project.list(),
+    initialData: []
+  });
+
+  const filteredProjects = projects.filter(p => 
+    p.title.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  // Mutations
+  const createProject = useMutation({
+    mutationFn: (data) => base44.entities.Project.create(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['projects']);
+      setShowModal(false);
+      resetForm();
+    }
+  });
+
+  const updateProject = useMutation({
+    mutationFn: ({ id, data }) => base44.entities.Project.update(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['projects']);
+      setShowModal(false);
+      resetForm();
+    }
+  });
+
+  const deleteProject = useMutation({
+    mutationFn: (id) => base44.entities.Project.delete(id),
+    onSuccess: () => queryClient.invalidateQueries(['projects'])
+  });
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (isEditing) {
+      updateProject.mutate({ id: isEditing.id, data: formData });
+    } else {
+      createProject.mutate(formData);
+    }
+  };
+
+  const handleEdit = (project) => {
+    setIsEditing(project);
+    setFormData({
+      title: project.title,
+      description: project.description,
+      status: project.status,
+      priority: project.priority,
+      start_date: project.start_date || '',
+      end_date: project.end_date || '',
+      client_email: project.client_email || ''
+    });
+    setShowModal(true);
+  };
+
+  const handleDelete = async (id) => {
+    if (window.confirm('Are you sure you want to move this project to the trash?')) {
+      deleteProject.mutate(id);
+    }
+  };
+
+  const resetForm = () => {
+    setIsEditing(null);
+    setFormData({
+      title: '',
+      description: '',
+      status: 'active',
+      priority: 'medium',
+      start_date: '',
+      end_date: '',
+      client_email: ''
+    });
+  };
+
+  return (
+    <div>
+      <div className="flex justify-between items-center mb-5">
+        <h1 className="wp-heading inline-block mr-4 mb-0">Projects</h1>
+        <button 
+          onClick={() => { resetForm(); setShowModal(true); }}
+          className="px-3 py-1 text-xs font-medium text-[#2271b1] border border-[#2271b1] rounded bg-[#f6f7f7] hover:bg-[#f0f0f1] hover:border-[#0a4b78] hover:text-[#0a4b78] transition-colors"
+        >
+          Add New
+        </button>
+      </div>
+
+      {/* Filters Bar */}
+      <div className="flex justify-between items-center mb-3 text-sm text-[#646970]">
+        <div className="flex gap-1">
+          <button className="text-[#1d2327] font-bold">All <span className="text-[#646970] font-normal">({projects.length})</span></button>
+        </div>
+        <div className="flex gap-2">
+          <div className="relative">
+            <input 
+                type="text" 
+                className="wp-input !h-8 !w-48" 
+                placeholder="Search projects..." 
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+            />
+            <button className="wp-btn-secondary !h-8 ml-1">Search Projects</button>
+          </div>
+        </div>
+      </div>
+
+      {/* WP Style Table */}
+      <div className="bg-white border border-[#c3c4c7] shadow-[0_1px_1px_rgba(0,0,0,0.04)]">
+        <table className="w-full text-left border-collapse">
+          <thead className="bg-white border-b border-[#c3c4c7]">
+            <tr>
+              <th className="w-8 p-2 text-center"><input type="checkbox" /></th>
+              <th className="p-2 text-sm font-medium text-[#1d2327]">Title</th>
+              <th className="p-2 text-sm font-medium text-[#1d2327]">Client</th>
+              <th className="p-2 text-sm font-medium text-[#1d2327]">Dates</th>
+              <th className="p-2 text-sm font-medium text-[#1d2327]">Status</th>
+              <th className="p-2 text-sm font-medium text-[#1d2327]">Priority</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-[#f0f0f1]">
+            {isLoading ? (
+               <tr><td colSpan={6} className="p-4 text-center">Loading projects...</td></tr>
+            ) : filteredProjects.length === 0 ? (
+               <tr><td colSpan={6} className="p-4 text-center">No projects found.</td></tr>
+            ) : (
+              filteredProjects.map(project => (
+                <tr key={project.id} className="group hover:bg-[#f9f9f9]">
+                  <td className="p-2 text-center"><input type="checkbox" /></td>
+                  <td className="p-2 relative">
+                    <div className="text-[#2271b1] font-semibold text-[14px] cursor-pointer mb-1">
+                      {project.title}
+                    </div>
+                    <div className="opacity-0 group-hover:opacity-100 transition-opacity text-[11px] text-[#646970] flex gap-1">
+                      <button onClick={() => handleEdit(project)} className="text-[#2271b1] hover:underline">Edit</button>
+                      <span className="text-[#c3c4c7]">|</span>
+                      <button onClick={() => handleDelete(project.id)} className="text-[#b32d2e] hover:underline">Trash</button>
+                      <span className="text-[#c3c4c7]">|</span>
+                      <Link to={createPageUrl('ProjectDetails') + `?id=${project.id}`} className="text-[#2271b1] hover:underline">View</Link>
+                    </div>
+                  </td>
+                  <td className="p-2 text-sm text-[#646970]">
+                    {project.client_email || '—'}
+                  </td>
+                  <td className="p-2 text-sm text-[#646970]">
+                     <div className="flex flex-col text-xs">
+                         {project.start_date && <span>Start: {format(new Date(project.start_date), 'MMM d, yyyy')}</span>}
+                         {project.end_date && <span>Due: {format(new Date(project.end_date), 'MMM d, yyyy')}</span>}
+                     </div>
+                  </td>
+                  <td className="p-2 text-sm">
+                     <span className={`
+                        inline-block px-2 py-1 rounded text-[11px] font-semibold
+                        ${project.status === 'active' ? 'bg-green-100 text-green-800' : ''}
+                        ${project.status === 'completed' ? 'bg-blue-100 text-blue-800' : ''}
+                        ${project.status === 'on_hold' ? 'bg-yellow-100 text-yellow-800' : ''}
+                        ${project.status === 'archived' ? 'bg-gray-100 text-gray-800' : ''}
+                     `}>
+                        {project.status.replace('_', ' ')}
+                     </span>
+                  </td>
+                  <td className="p-2 text-sm">
+                     <span className={`
+                         font-medium capitalize
+                         ${project.priority === 'high' ? 'text-[#b32d2e]' : 'text-[#646970]'}
+                     `}>
+                         {project.priority}
+                     </span>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+          <tfoot className="bg-white border-t border-[#c3c4c7]">
+            <tr>
+              <th className="w-8 p-2 text-center"><input type="checkbox" /></th>
+              <th className="p-2 text-sm font-medium text-[#1d2327]">Title</th>
+              <th className="p-2 text-sm font-medium text-[#1d2327]">Client</th>
+              <th className="p-2 text-sm font-medium text-[#1d2327]">Dates</th>
+              <th className="p-2 text-sm font-medium text-[#1d2327]">Status</th>
+              <th className="p-2 text-sm font-medium text-[#1d2327]">Priority</th>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      {/* Modal */}
+      {showModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+           <div className="bg-white w-full max-w-lg shadow-2xl rounded-sm overflow-hidden">
+              <div className="bg-[#f0f0f1] px-4 py-3 border-b border-[#c3c4c7] flex justify-between items-center">
+                 <h2 className="text-lg font-semibold text-[#1d2327]">{isEditing ? 'Edit Project' : 'Add New Project'}</h2>
+                 <button onClick={() => setShowModal(false)} className="text-[#646970] hover:text-[#b32d2e]">✕</button>
+              </div>
+              <form onSubmit={handleSubmit} className="p-5 space-y-4">
+                 <div>
+                    <label className="block text-sm font-semibold text-[#1d2327] mb-1">Project Name</label>
+                    <input 
+                      type="text" 
+                      required
+                      className="wp-input w-full max-w-full"
+                      value={formData.title}
+                      onChange={(e) => setFormData({...formData, title: e.target.value})}
+                    />
+                 </div>
+                 <div>
+                    <label className="block text-sm font-semibold text-[#1d2327] mb-1">Description</label>
+                    <textarea 
+                      className="wp-input h-24 w-full max-w-full py-2"
+                      value={formData.description}
+                      onChange={(e) => setFormData({...formData, description: e.target.value})}
+                    />
+                 </div>
+                 <div className="grid grid-cols-2 gap-4">
+                    <div>
+                       <label className="block text-sm font-semibold text-[#1d2327] mb-1">Status</label>
+                       <select 
+                         className="wp-input w-full"
+                         value={formData.status}
+                         onChange={(e) => setFormData({...formData, status: e.target.value})}
+                       >
+                         <option value="active">Active</option>
+                         <option value="on_hold">On Hold</option>
+                         <option value="completed">Completed</option>
+                         <option value="archived">Archived</option>
+                       </select>
+                    </div>
+                    <div>
+                       <label className="block text-sm font-semibold text-[#1d2327] mb-1">Priority</label>
+                       <select 
+                         className="wp-input w-full"
+                         value={formData.priority}
+                         onChange={(e) => setFormData({...formData, priority: e.target.value})}
+                       >
+                         <option value="low">Low</option>
+                         <option value="medium">Medium</option>
+                         <option value="high">High</option>
+                       </select>
+                    </div>
+                 </div>
+                 <div className="grid grid-cols-2 gap-4">
+                    <div>
+                       <label className="block text-sm font-semibold text-[#1d2327] mb-1">Start Date</label>
+                       <input 
+                         type="date" 
+                         className="wp-input w-full"
+                         value={formData.start_date}
+                         onChange={(e) => setFormData({...formData, start_date: e.target.value})}
+                       />
+                    </div>
+                    <div>
+                       <label className="block text-sm font-semibold text-[#1d2327] mb-1">End Date</label>
+                       <input 
+                         type="date" 
+                         className="wp-input w-full"
+                         value={formData.end_date}
+                         onChange={(e) => setFormData({...formData, end_date: e.target.value})}
+                       />
+                    </div>
+                 </div>
+                 <div>
+                    <label className="block text-sm font-semibold text-[#1d2327] mb-1">Client Email</label>
+                    <input 
+                      type="email" 
+                      className="wp-input w-full max-w-full"
+                      value={formData.client_email}
+                      onChange={(e) => setFormData({...formData, client_email: e.target.value})}
+                    />
+                 </div>
+                 <div className="pt-4 flex justify-end gap-2">
+                    <button type="button" onClick={() => setShowModal(false)} className="text-[#2271b1] text-sm hover:underline px-3 py-1">Cancel</button>
+                    <button type="submit" className="wp-btn">{isEditing ? 'Update Project' : 'Create Project'}</button>
+                 </div>
+              </form>
+           </div>
+        </div>
+      )}
+    </div>
+  );
+}
